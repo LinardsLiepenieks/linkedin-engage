@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Runtime / scraped data (personal — keep the folder, not its contents)
+data/*
+!data/.gitkeep
+
+# OS / editor
+.DS_Store
+
+# Personal (not shared — each user keeps their own; templates are the *.example.md files)
+qualify.md
+.claude/skills/linkedin-engage/SKILL.md
