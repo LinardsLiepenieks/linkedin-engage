@@ -27,7 +27,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-CDP_URL = "http://localhost:9222"
+CDP_URL = "http://127.0.0.1:9222"  # 127.0.0.1, not localhost: newer Playwright resolves localhost to IPv6 ::1
 FEED_URL = "https://www.linkedin.com/feed/"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
