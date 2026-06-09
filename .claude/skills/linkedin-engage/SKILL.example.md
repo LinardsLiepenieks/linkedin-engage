@@ -102,7 +102,8 @@ tell the user and point at the SELECTORS note in `scrape_feed.py`. Don't fabrica
     "score": 8, "reason": "why it qualified / was skipped",
     "comment": "drafted comment or empty string",
     "include": true,        // true only if the qualify.md rules say to engage
-    "like": true, "follow": false
+    "like": true, "follow": false,
+    "rating": null          // leave null — the user sets 👍/👎 in the review UI; feeds step 5
   }
   ```
   Include below-threshold (but non-duplicate) posts too, with `include: false` and empty
@@ -126,9 +127,11 @@ commented. Skip this step if `qualify.md` defines no prospect taxonomy.
 
 ### 3 — Review UI
 Run in the background: `python scripts/serve_review.py`
-It opens http://localhost:8765 where the user edits comments and toggles include/like/follow,
+It opens http://localhost:8765 where the user edits comments, toggles include/like/follow, and
+rates each draft **👍 / 👎** (draft-quality feedback that feeds step 5 — independent of edits),
 with a working "open ↗" link to each post (the resolved permalink). Tell the user to click
-**Save approvals** when done (writes `data/approved.json`), then confirm before continuing.
+**Save approvals** when done (writes `data/approved.json`, including their edits and ratings),
+then confirm before continuing.
 
 ### 4 — Apply (only after approval)
 - First do a rehearsal: `python scripts/apply_comments.py --dry-run` and show the user what
@@ -138,6 +141,25 @@ with a working "open ↗" link to each post (the resolved permalink). Tell the u
   no content-matching. Items without a resolved permalink are skipped, never guessed.
 - Report the results from `data/apply_results.json`.
 - Stop the review server (it was backgrounded) once finished.
+
+### 5 — Learn from this run (do this at the END, after posting all)
+This is how the tool gets better: it learns from how the user edited and rated your drafts.
+- Run: `python scripts/build_learning.py` → writes `data/learning.json` (joins your original
+  drafts ↔ the approved/edited finals ↔ 👍/👎 ratings ↔ what posted). It does no analysis; you do.
+- Read `data/learning.json`. For each record compare `draft_comment` with `final_comment`. The
+  signals, strongest first:
+  - **edited** drafts → study *what changed* (shorter? question removed? a phrase cut? tone?).
+  - **rating: "down"** → disliked draft (strong style negative even if kept); **"up"** → reinforce.
+  - **rejected** (you included it, user dropped it) → a targeting/qualification miss, not just style.
+  - **kept_verbatim + 👍** → the current rules are right there; don't churn them.
+- **Distill recurring patterns, not one-offs.** Only write a rule when **≥2 examples** agree.
+  Phrase each as a concrete, actionable drafting instruction, not vague meta-advice.
+- **Write them into `qualify.md`**, merging into the auto-maintained block between the
+  `<!-- LEARNED:BEGIN -->` and `<!-- LEARNED:END -->` markers. Merge/refine rather than appending
+  near-duplicates; drop a learned rule this run's evidence contradicts. Keep it a tight list of
+  distilled rules, not a per-run changelog.
+- If there were no edits and no ratings, say so and leave `qualify.md` unchanged — never invent
+  patterns. Briefly tell the user what you changed (or that you didn't, and why).
 
 ## Guardrails
 - **No duplicate comments.** `data/history.json` records every post we've commented on (by

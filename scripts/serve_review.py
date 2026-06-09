@@ -7,6 +7,7 @@ http://localhost:8765 where you can:
   * read each qualifying post,
   * edit the drafted comment,
   * toggle include / like / follow per post,
+  * rate the DRAFT 👍 / 👎 (feedback on the draft quality, independent of edits),
   * click "Save approvals" -> writes data/approved.json.
 
 After you save, the page tells you it's safe to close, and you return to the skill to run
@@ -64,6 +65,11 @@ PAGE = r"""<!doctype html>
              border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
   .toggles { display:flex; gap:18px; margin-top:10px; font-size:14px; align-items:center; }
   .toggles label { display:flex; gap:6px; align-items:center; cursor:pointer; }
+  .rate { display:flex; gap:6px; margin-left:auto; }
+  .ratebtn { padding:4px 10px; font-size:15px; line-height:1; opacity:.55; }
+  .ratebtn.active { opacity:1; }
+  .ratebtn.active.up { border-color:var(--good); background:rgba(63,185,80,.15); }
+  .ratebtn.active.down { border-color:#f85149; background:rgba(248,81,73,.15); }
   a.permalink { color:var(--accent); text-decoration:none; font-size:12px; }
   #status { color:var(--good); font-weight:600; }
   .empty { text-align:center; color:var(--muted); padding:60px; }
@@ -120,6 +126,12 @@ function render() {
             onchange="DATA[${i}].like=this.checked"> like</label>
         <label><input type="checkbox" ${d.follow ? 'checked':''}
             onchange="DATA[${i}].follow=this.checked"> follow author</label>
+        <span class="rate" title="Rate this draft (feeds learning at end of run)">
+          <button type="button" id="up-${i}" class="ratebtn ${d.rating==='up'?'active up':''}"
+              onclick="ratePost(${i},'up')">👍</button>
+          <button type="button" id="down-${i}" class="ratebtn ${d.rating==='down'?'active down':''}"
+              onclick="ratePost(${i},'down')">👎</button>
+        </span>
       </div>`;
     list.appendChild(card);
   });
@@ -127,6 +139,13 @@ function render() {
 }
 
 function toggleCard(i){ document.getElementById('card-'+i).classList.toggle('excluded', !DATA[i].include); updateCounter(); }
+function ratePost(i, val){
+  DATA[i].rating = (DATA[i].rating === val) ? null : val;   // click again to clear
+  document.getElementById('up-'+i).classList.toggle('active', DATA[i].rating==='up');
+  document.getElementById('up-'+i).classList.toggle('up', DATA[i].rating==='up');
+  document.getElementById('down-'+i).classList.toggle('active', DATA[i].rating==='down');
+  document.getElementById('down-'+i).classList.toggle('down', DATA[i].rating==='down');
+}
 function updateCounter(){
   const n = DATA.filter(d=>d.include).length;
   document.getElementById('counter').textContent = n + ' of ' + DATA.length + ' selected';
@@ -173,6 +192,7 @@ class Handler(BaseHTTPRequestHandler):
                 d.setdefault("include", True)
                 d.setdefault("like", False)
                 d.setdefault("follow", False)
+                d.setdefault("rating", None)  # "up" | "down" | None — draft-quality feedback
             self._send(200, json.dumps(data), "application/json")
         else:
             self._send(404, "not found")

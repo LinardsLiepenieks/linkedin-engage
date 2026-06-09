@@ -116,3 +116,12 @@ Leave them null if no taxonomy fits.
   reach now; record but don't prioritise>
 
 If you don't want prospect collection at all, delete §8/§8a and the skill will skip it.
+
+<!-- LEARNED:BEGIN — auto-maintained by the skill's step 5 from your edits & 👍/👎 ratings.
+     Concrete, distilled draft-style rules learned across runs. Safe to hand-edit or prune;
+     the drafting step (step 2) reads this section like the rest of the file. -->
+## 9. Learned from your edits & ratings
+
+_No learnings recorded yet. After your first reviewed + posted run, the skill compares what it
+drafted against what you approved/edited (and your 👍/👎) and distills recurring patterns here._
+<!-- LEARNED:END -->
