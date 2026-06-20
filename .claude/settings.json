@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python scripts/scrape_feed.py *)",
+      "Bash(.venv/bin/python scripts/resolve_links.py *)",
+      "Bash(.venv/bin/python scripts/collect_prospects.py *)",
+      "Bash(.venv/bin/python scripts/serve_review.py *)",
+      "Bash(.venv/bin/python scripts/build_learning.py *)",
+      "Bash(.venv/bin/python scripts/apply_comments.py --dry-run)",
+      "Bash(bash scripts/start_chrome.sh *)",
+      "Bash(curl -s http://localhost:9222/*)"
+    ]
+  }
+}

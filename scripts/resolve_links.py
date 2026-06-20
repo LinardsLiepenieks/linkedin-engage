@@ -2,15 +2,23 @@
 """
 resolve_links.py — Capture the real permalink for each PROPOSED post and save it.
 
-LinkedIn's feed doesn't expose post permalinks in the DOM, so we acquire them the canonical
-way: locate each included post once (by author + text snippet), open its "⋯" control menu,
-click "Copy link to post", and read the link off the clipboard. The link is then saved into
-review.json so the review UI shows a real clickable link AND the apply step can navigate
-directly to it (no fragile re-matching at comment time).
+Two ways to get a post's permalink, tried in this order:
 
-Each link is verified: the copied URL must look like a post permalink and loosely match the
-author, otherwise it's left blank (and that post is skipped at apply time rather than risking
-a comment on the wrong post).
+1. PRIMARY — backfill from the scrape. scrape_feed.py reads each post's permalink straight off
+   its DOM block (anchored to the same element as the post text), so data/posts.json usually
+   already has the canonical link. We match each included post to its scraped entry by exact
+   post text and copy the permalink over. This is the most reliable path — no re-matching
+   against a live feed that has since scrolled and changed.
+
+2. FALLBACK — live-feed lookup. For any included post the scrape didn't capture a link for, we
+   locate it in the feed (by author + text snippet), open its "⋯" control menu, click
+   "Copy link to post", and read the link off the clipboard. This is fragile (the feed reorders
+   between scrape and resolve), so it's only used to fill the gaps the scrape left behind.
+
+Fallback links are verified: the copied URL must look like a post permalink and loosely match
+the author, otherwise it's left blank (and that post is skipped at apply time rather than
+risking a comment on the wrong post). Scrape-captured links need no such check — exact-text
+identity is far stronger than a name-token slug match.
 
 Usage:
     python scripts/resolve_links.py                 # resolve links for includes in review.json
@@ -100,6 +108,40 @@ def verify_link(url, author):
     return any(t in u for t in toks)
 
 
+def looks_like_post_url(url):
+    return bool(url) and "linkedin.com/" in url and ("/posts/" in url or "/feed/update/" in url)
+
+
+def backfill_from_scrape(items, posts_path):
+    """Fill permalinks from scrape_feed.py output (data/posts.json) by exact post-text match.
+
+    Returns the count filled. The scraper reads each permalink off the same DOM block as the
+    post text, so an exact text match is a trustworthy identity — no author-slug check needed.
+    """
+    if not posts_path.exists():
+        return 0
+    try:
+        posts = json.loads(posts_path.read_text())
+    except Exception:
+        return 0
+    by_text = {p.get("text"): p for p in posts if p.get("text")}
+    filled = 0
+    for it in items:
+        if not it.get("include") or it.get("permalink"):
+            continue
+        p = by_text.get(it.get("text"))
+        if p and looks_like_post_url(p.get("permalink")):
+            it["permalink"] = p["permalink"].split("?")[0]
+            if p.get("activity_id"):
+                it["activity_id"] = p["activity_id"]
+            else:
+                m = ACTIVITY_RE.search(it["permalink"])
+                if m:
+                    it["activity_id"] = m.group(1)
+            filled += 1
+    return filled
+
+
 def find_in_feed(page, author, snippet, max_scrolls=40):
     for _ in range(max_scrolls):
         if page.evaluate(FIND_JS, [author, snippet[:80]]):
@@ -120,8 +162,15 @@ def main():
         print(f"ERROR: {path} not found.", file=sys.stderr)
         sys.exit(1)
     items = json.loads(path.read_text())
+
+    # PRIMARY path: backfill permalinks the scrape already captured (exact text match).
+    filled = backfill_from_scrape(items, DATA_DIR / "posts.json")
+    if filled:
+        path.write_text(json.dumps(items, indent=2, ensure_ascii=False))
+        print(f"Backfilled {filled} permalink(s) from the scrape (data/posts.json).")
+
     todo = [it for it in items if it.get("include") and not it.get("permalink")]
-    print(f"Resolving links for {len(todo)} proposed post(s)…\n")
+    print(f"Live-feed lookup needed for {len(todo)} remaining post(s)…\n")
     if not todo:
         print("Nothing to resolve (all includes already have permalinks).")
         return
