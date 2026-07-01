@@ -40,7 +40,11 @@ APPROVED_FILE = DATA_DIR / "approved.json"
 RESULTS_FILE = DATA_DIR / "apply_results.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 
-EDITOR_SEL = 'div[role="textbox"][aria-label="Text editor for creating comment"]'
+# The comment editor is a Quill ql-editor whose placeholder mentions "comment"
+# (distinguishes it from the messaging boxes, which use msg-form__contenteditable /
+# "Write a message…"). Match on the placeholder so a LinkedIn aria-label rename
+# (it went from "…creating comment" to "…creating content") doesn't break us again.
+EDITOR_SEL = 'div.ql-editor[aria-placeholder*="comment" i]'
 ACTIVITY_RE = re.compile(r"(\d{15,25})")
 
 
@@ -89,7 +93,7 @@ def record_history(item, comment_text):
 def open_comment_box(page):
     """Click the post page's 'Comment' toggle to reveal the editor (idempotent-ish)."""
     return page.evaluate(r"""() => {
-      if (document.querySelector('div[role="textbox"][aria-label="Text editor for creating comment"]')) return true;
+      if (document.querySelector('div.ql-editor[aria-placeholder*="comment" i]')) return true;
       const btn = [...document.querySelectorAll('button')].find(b => /^\s*comment\s*$/i.test(b.innerText || ''));
       if (btn) { btn.click(); return true; }
       return false;
@@ -99,7 +103,7 @@ def open_comment_box(page):
 def submit_comment(page):
     """Click the submit 'Comment' button that appears after the editor once text is present."""
     return page.evaluate(r"""() => {
-      const ed = document.querySelector('div[role="textbox"][aria-label="Text editor for creating comment"]');
+      const ed = document.querySelector('div.ql-editor[aria-placeholder*="comment" i]');
       const btns = [...document.querySelectorAll('button')].filter(b => /^\s*comment\s*$/i.test(b.innerText || ''));
       let submit = null;
       if (ed) {
